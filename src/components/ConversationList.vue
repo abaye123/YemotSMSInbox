@@ -1,219 +1,3 @@
-<script setup>
-import { format, isToday, isThisYear, differenceInDays } from 'date-fns';
-import { he } from 'date-fns/locale';
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import {
-  FunnelIcon,
-  PencilSquareIcon,
-  MagnifyingGlassIcon,
-  XMarkIcon,
-  CheckCircleIcon,
-  EllipsisVerticalIcon
-} from "@heroicons/vue/24/outline";
-import { MessageSquarePlus } from 'lucide-vue-next';
-
-import {
-  checkGoogleAuthStatus,
-  initiateGoogleLogin,
-  logoutFromGoogle
-} from '../services/google.service';
-import NewMessageDialog from './NewMessageDialog.vue';
-
-const props = defineProps({
-  conversations: {
-    type: Array,
-    default: () => []
-  },
-  selectedId: {
-    type: String,
-    default: null
-  },
-});
-
-const emit = defineEmits(['select', 'refreshMessages', 'filter', 'markAllAsRead']);
-
-const openPrivacyPolicy = () => {
-  window.openPrivacyPolicy()
-};
-
-const newMessageDialogVisible = ref(false);
-const filter = ref(false);
-const searchQuery = ref('');
-const showActionsMenu = ref(false);
-
-const googleStatus = ref({
-  isAuthenticated: false,
-  userEmail: '',
-  contactCount: 0
-});
-
-const toggleActionsMenu = () => {
-  showActionsMenu.value = !showActionsMenu.value;
-};
-
-// Close menu when clicking outside
-const handleClickOutside = (event) => {
-  if (!event.target.closest('.actions-menu-container')) {
-    showActionsMenu.value = false;
-  }
-};
-
-const handleGoogleStatusUpdate = async () => {
-  console.log('Received googleAuthStatusUpdated event in ConversationList');
-  await checkGoogleStatus();
-};
-
-onMounted(() => {
-  checkGoogleStatus();
-  document.addEventListener('click', handleClickOutside);
-  window.addEventListener('googleAuthStatusUpdated', handleGoogleStatusUpdate);
-  window.addEventListener('googleAuthStatusChanged', handleGoogleStatusUpdate);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
-  window.removeEventListener('googleAuthStatusUpdated', handleGoogleStatusUpdate);
-  window.removeEventListener('googleAuthStatusChanged', handleGoogleStatusUpdate);
-});
-
-// Function to check Google Auth status
-async function checkGoogleStatus() {
-  try {
-    const status = await checkGoogleAuthStatus();
-    googleStatus.value = status;
-    console.log('Google Auth Status updated in ConversationList:', status);
-  } catch (error) {
-    console.error('Error checking Google auth status in ConversationList:', error);
-  }
-}
-
-// Function to handle Google login
-async function handleGoogleLogin() {
-  console.log('Initiating Google login...');
-  try {
-
-    await initiateGoogleLogin();
-
-    let attempts = 0;
-    const maxAttempts = 20;
-
-    const checkLoginStatus = async () => {
-      attempts++;
-      const status = await checkGoogleAuthStatus();
-      console.log(`Login status check attempt ${attempts}:`, status);
-
-      if (status.isAuthenticated) {
-        googleStatus.value = status;
-
-        emit('refreshMessages');
-        return;
-      }
-
-      if (attempts < maxAttempts) {
-        setTimeout(checkLoginStatus, 500);
-      }
-    };
-
-    setTimeout(checkLoginStatus, 1000);
-  } catch (error) {
-    console.error('Error during Google login:', error);
-    alert('שגיאה בתהליך ההתחברות לגוגל. אנא נסה שוב.');
-  }
-}
-
-// Function to handle Google logout
-async function handleGoogleLogout() {
-  const confirmLogout = confirm('האם אתה בטוח שברצונך להפסיק את הסנכרון עם גוגל?');
-  if (!confirmLogout) return;
-  console.log('Logging out from Google...');
-  await logoutFromGoogle();
-  await checkGoogleStatus();
-  emit('refreshMessages');
-}
-
-const filteredConversations = computed(() => {
-  if (!searchQuery.value) return props.conversations;
-
-  const query = searchQuery.value.toLowerCase();
-  return props.conversations.filter(conversation =>
-    conversation.name.toLowerCase().includes(query) ||
-    conversation.lastMessage.message.toLowerCase().includes(query)
-  );
-});
-
-const formatTime = (date) => {
-  const now = new Date();
-  const messageDate = new Date(date);
-
-  if (isToday(messageDate)) {
-    return format(messageDate, 'HH:mm');
-  }
-
-  const daysDifference = differenceInDays(now, messageDate);
-
-  if (daysDifference <= 7) {
-    switch (daysDifference) {
-      case 0:
-        return 'אתמול';
-      case 1:
-        return 'לפני יומיים';
-      default:
-        return `לפני ${daysDifference + 1} ימים`;
-    }
-  }
-
-  if (isThisYear(messageDate)) {
-    return format(messageDate, 'd בMMMM', { locale: he });
-  }
-
-  return format(messageDate, 'd בMMMM yyyy', { locale: he });
-};
-
-const hasUnreadMessages = computed(() => {
-  return props.conversations.some(conversation => conversation.unreadCount > 0);
-});
-
-// Handle new message dialog events
-const handleNewMessageSuccess = (messageData) => {
-  newMessageDialogVisible.value = false;
-  emit('refreshMessages');
-  console.log('הודעה חדשה נשלחה בהצלחה:', messageData);
-};
-
-const handleNewMessageCancel = () => {
-  newMessageDialogVisible.value = false;
-};
-
-const handleNewMessageError = (error) => {
-  console.error('שגיאה בשליחת הודעה חדשה:', error);
-};
-
-const toggleFilter = () => {
-  filter.value = !filter.value;
-  emit('filter', filter.value);
-};
-
-const markAllAsRead = () => {
-  if (confirm('האם אתה בטוח שברצונך לסמן את כל ההודעות כנקראו?')) {
-    emit('markAllAsRead');
-  }
-};
-
-watch(() => props.selectedId, (newVal) => {
-  if (newVal) {
-    console.log('Selected ID in ConversationList:', newVal);
-    console.log('All conversation IDs:', props.conversations.map(c => c.id));
-  }
-});
-
-onMounted(() => {
-  if (props.selectedId) {
-    console.log('Initial selectedId:', props.selectedId);
-    console.log('Initial conversations:', props.conversations.map(c => c.id));
-  }
-});
-</script>
-
 <template>
   <div :class="[
     selectedId ? 'hidden md:block md:w-96' : 'w-full md:w-96',
@@ -372,7 +156,7 @@ onMounted(() => {
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
         </path>
       </svg>
-      טוען שיחות...
+      טוען את השיחות...
     </div>
 
   </div>
@@ -381,6 +165,222 @@ onMounted(() => {
   <NewMessageDialog :visible="newMessageDialogVisible" :should-focus="true" @success="handleNewMessageSuccess"
     @cancel="handleNewMessageCancel" @error="handleNewMessageError" />
 </template>
+
+<script setup>
+import { format, isToday, isThisYear, differenceInDays } from 'date-fns';
+import { he } from 'date-fns/locale';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import {
+  FunnelIcon,
+  PencilSquareIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  CheckCircleIcon,
+  EllipsisVerticalIcon
+} from "@heroicons/vue/24/outline";
+import { MessageSquarePlus } from 'lucide-vue-next';
+
+import {
+  checkGoogleAuthStatus,
+  initiateGoogleLogin,
+  logoutFromGoogle
+} from '../services/google.service';
+import NewMessageDialog from './NewMessageDialog.vue';
+
+const props = defineProps({
+  conversations: {
+    type: Array,
+    default: () => []
+  },
+  selectedId: {
+    type: String,
+    default: null
+  },
+});
+
+const emit = defineEmits(['select', 'refreshMessages', 'filter', 'markAllAsRead']);
+
+const openPrivacyPolicy = () => {
+  window.openPrivacyPolicy()
+};
+
+const newMessageDialogVisible = ref(false);
+const filter = ref(false);
+const searchQuery = ref('');
+const showActionsMenu = ref(false);
+
+const googleStatus = ref({
+  isAuthenticated: false,
+  userEmail: '',
+  contactCount: 0
+});
+
+const toggleActionsMenu = () => {
+  showActionsMenu.value = !showActionsMenu.value;
+};
+
+// Close menu when clicking outside
+const handleClickOutside = (event) => {
+  if (!event.target.closest('.actions-menu-container')) {
+    showActionsMenu.value = false;
+  }
+};
+
+const handleGoogleStatusUpdate = async () => {
+  console.log('Received googleAuthStatusUpdated event in ConversationList');
+  await checkGoogleStatus();
+};
+
+onMounted(() => {
+  checkGoogleStatus();
+  document.addEventListener('click', handleClickOutside);
+  window.addEventListener('googleAuthStatusUpdated', handleGoogleStatusUpdate);
+  window.addEventListener('googleAuthStatusChanged', handleGoogleStatusUpdate);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+  window.removeEventListener('googleAuthStatusUpdated', handleGoogleStatusUpdate);
+  window.removeEventListener('googleAuthStatusChanged', handleGoogleStatusUpdate);
+});
+
+// Function to check Google Auth status
+async function checkGoogleStatus() {
+  try {
+    const status = await checkGoogleAuthStatus();
+    googleStatus.value = status;
+    console.log('Google Auth Status updated in ConversationList:', status);
+  } catch (error) {
+    console.error('Error checking Google auth status in ConversationList:', error);
+  }
+}
+
+// Function to handle Google login
+async function handleGoogleLogin() {
+  console.log('Initiating Google login...');
+  try {
+
+    await initiateGoogleLogin();
+
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const checkLoginStatus = async () => {
+      attempts++;
+      const status = await checkGoogleAuthStatus();
+      console.log(`Login status check attempt ${attempts}:`, status);
+
+      if (status.isAuthenticated) {
+        googleStatus.value = status;
+
+        emit('refreshMessages');
+        return;
+      }
+
+      if (attempts < maxAttempts) {
+        setTimeout(checkLoginStatus, 500);
+      }
+    };
+
+    setTimeout(checkLoginStatus, 1000);
+  } catch (error) {
+    console.error('Error during Google login:', error);
+    alert('שגיאה בתהליך ההתחברות לגוגל. אנא נסה שוב.');
+  }
+}
+
+// Function to handle Google logout
+async function handleGoogleLogout() {
+  const confirmLogout = confirm('האם אתה בטוח שברצונך להפסיק את הסנכרון עם גוגל?');
+  if (!confirmLogout) return;
+  console.log('Logging out from Google...');
+  await logoutFromGoogle();
+  await checkGoogleStatus();
+  emit('refreshMessages');
+}
+
+const filteredConversations = computed(() => {
+  if (!searchQuery.value) return props.conversations;
+
+  const query = searchQuery.value.toLowerCase();
+  return props.conversations.filter(conversation =>
+    conversation.name.toLowerCase().includes(query) ||
+    conversation.lastMessage.content.toLowerCase().includes(query)
+  );
+});
+
+const formatTime = (date) => {
+  const now = new Date();
+  const messageDate = new Date(date);
+
+  if (isToday(messageDate)) {
+    return format(messageDate, 'HH:mm');
+  }
+
+  const daysDifference = differenceInDays(now, messageDate);
+
+  if (daysDifference <= 7) {
+    switch (daysDifference) {
+      case 0:
+        return 'אתמול';
+      case 1:
+        return 'לפני יומיים';
+      default:
+        return `לפני ${daysDifference + 1} ימים`;
+    }
+  }
+
+  if (isThisYear(messageDate)) {
+    return format(messageDate, 'd בMMMM', { locale: he });
+  }
+
+  return format(messageDate, 'd בMMMM yyyy', { locale: he });
+};
+
+const hasUnreadMessages = computed(() => {
+  return props.conversations.some(conversation => conversation.unreadCount > 0);
+});
+
+// Handle new message dialog events
+const handleNewMessageSuccess = (messageData) => {
+  newMessageDialogVisible.value = false;
+  emit('refreshMessages');
+  console.log('הודעה חדשה נשלחה בהצלחה:', messageData);
+};
+
+const handleNewMessageCancel = () => {
+  newMessageDialogVisible.value = false;
+};
+
+const handleNewMessageError = (error) => {
+  console.error('שגיאה בשליחת הודעה חדשה:', error);
+};
+
+const toggleFilter = () => {
+  filter.value = !filter.value;
+  emit('filter', filter.value);
+};
+
+const markAllAsRead = () => {
+  if (confirm('האם אתה בטוח שברצונך לסמן את כל ההודעות כנקראו?')) {
+    emit('markAllAsRead');
+  }
+};
+
+watch(() => props.selectedId, (newVal) => {
+  if (newVal) {
+    console.log('Selected ID in ConversationList:', newVal);
+    console.log('All conversation IDs:', props.conversations.map(c => c.id));
+  }
+});
+
+onMounted(() => {
+  if (props.selectedId) {
+    console.log('Initial selectedId:', props.selectedId);
+    console.log('Initial conversations:', props.conversations.map(c => c.id));
+  }
+});
+</script>
 
 <style scoped>
 .fade-enter-active,
