@@ -23,6 +23,8 @@
             <button @click="openPrivacyPolicy()" class="text-indigo-600 hover:text-indigo-800 transition">
                 מדיניות הפרטיות
             </button>
+            <p>|</p>
+            <p>גרסה v{{ version }}</p>
         </div>
     </div>
 </template>
@@ -36,6 +38,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['logout']);
+
+const version = import.meta.env.VITE_VERSION || '0.0.0';
 
 const openPrivacyPolicy = () => {
     window.openPrivacyPolicy();
