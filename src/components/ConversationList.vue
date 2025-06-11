@@ -10,11 +10,14 @@ import {
   CheckCircleIcon,
   EllipsisVerticalIcon
 } from "@heroicons/vue/24/outline";
+import { MessageSquarePlus } from 'lucide-vue-next';
+
 import {
   checkGoogleAuthStatus,
   initiateGoogleLogin,
   logoutFromGoogle
 } from '../services/google.service';
+import NewMessageDialog from './NewMessageDialog.vue';
 
 const props = defineProps({
   conversations: {
@@ -35,9 +38,6 @@ const openPrivacyPolicy = () => {
 
 const newMessageDialogVisible = ref(false);
 const filter = ref(false);
-const loading = ref(false);
-const phoneToSend = ref('');
-const messageToSend = ref('');
 const searchQuery = ref('');
 const showActionsMenu = ref(false);
 
@@ -173,37 +173,20 @@ const hasUnreadMessages = computed(() => {
   return props.conversations.some(conversation => conversation.unreadCount > 0);
 });
 
-const resetNewMessageForm = () => {
-  phoneToSend.value = '';
-  messageToSend.value = '';
-  loading.value = false;
+// Handle new message dialog events
+const handleNewMessageSuccess = (messageData) => {
+  newMessageDialogVisible.value = false;
+  emit('refreshMessages');
+  console.log('הודעה חדשה נשלחה בהצלחה:', messageData);
+};
+
+const handleNewMessageCancel = () => {
   newMessageDialogVisible.value = false;
 };
 
-async function sendNewMessage() {
-  if (!phoneToSend.value || !messageToSend.value) return;
-
-  loading.value = true;
-
-  try {
-    const response = await fetch(
-      `https://www.call2all.co.il/ym/api/SendSms?token=${localStorage.getItem('username')}:${localStorage.getItem('password')}&phones=${phoneToSend.value}&message=${messageToSend.value}`
-    );
-
-    const data = await response.json();
-
-    if (data.responseStatus === 'OK') {
-      emit('refreshMessages');
-      resetNewMessageForm();
-    } else {
-      alert('שגיאה בשליחת ההודעה!\n' + data.message);
-      loading.value = false;
-    }
-  } catch (error) {
-    alert('שגיאה בשליחת ההודעה: ' + error.message);
-    loading.value = false;
-  }
-}
+const handleNewMessageError = (error) => {
+  console.error('שגיאה בשליחת הודעה חדשה:', error);
+};
 
 const toggleFilter = () => {
   filter.value = !filter.value;
@@ -299,9 +282,10 @@ onMounted(() => {
         </div>
 
         <!-- New Message Button -->
-        <button class="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-500 transition shadow-sm"
-          @click="newMessageDialogVisible = true">
-          <PencilSquareIcon class="w-5 h-5" />
+        <button
+          class="w-10 h-10 rounded-full bg-indigo-600 text-white hover:bg-indigo-500 transition shadow-sm flex items-center justify-center"
+          @click="newMessageDialogVisible = true" v-tippy="'שלח הודעה חדשה'">
+          <MessageSquarePlus class="w-5 h-5" />
         </button>
       </div>
     </div>
@@ -394,63 +378,8 @@ onMounted(() => {
   </div>
 
   <!-- New Message Dialog -->
-  <transition name="fade">
-    <div v-if="newMessageDialogVisible" @click="newMessageDialogVisible = false"
-      class="fixed inset-0 bg-gray-900 bg-opacity-50 flex justify-center items-center z-50 p-4"
-      style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
-
-      <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md" @click.stop="" style="transform-origin: center">
-        <div class="flex justify-between items-center mb-5">
-          <h3 class="text-xl font-bold text-gray-800">שלח הודעה חדשה</h3>
-          <button @click="newMessageDialogVisible = false" class="p-1.5 rounded-full hover:bg-gray-100 text-gray-500">
-            <XMarkIcon class="w-5 h-5" />
-          </button>
-        </div>
-
-        <div class="space-y-4">
-          <label for="phone"
-            class="relative block overflow-hidden rounded-lg border border-gray-200 px-3 pt-3 shadow-sm focus-within:border-indigo-600 focus-within:ring-1 focus-within:ring-indigo-600 transition-colors bg-white">
-            <input v-model="phoneToSend" type="text" id="phone" placeholder="מספר הטלפון של הנמען"
-              class="peer h-10 w-full border-none bg-transparent p-0 placeholder-transparent focus:placeholder-gray-400 focus:outline-none focus:ring-0 sm:text-sm text-gray-900"
-              dir="rtl" />
-            <span
-              class="absolute start-3 top-3 -translate-y-1/2 text-xs text-gray-500 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-3 peer-focus:text-xs">
-              מספר טלפון
-            </span>
-          </label>
-
-          <label for="message"
-            class="relative block overflow-hidden rounded-lg border border-gray-200 px-3 pt-3 shadow-sm focus-within:border-indigo-600 focus-within:ring-1 focus-within:ring-indigo-600 transition-colors bg-white">
-            <textarea v-model="messageToSend" id="message" placeholder="הודעה"
-              class="peer h-32 w-full border-none bg-transparent p-0 pt-2 placeholder-transparent focus:placeholder-gray-400 focus:outline-none focus:ring-0 sm:text-sm text-gray-900"
-              dir="rtl"></textarea>
-            <span
-              class="absolute start-3 top-1 text-xs text-gray-500 transition-all peer-placeholder-shown:top-3 peer-placeholder-shown:text-sm peer-focus:top-1 peer-focus:text-xs">
-              הודעה
-            </span>
-          </label>
-
-          <button :disabled="loading || !phoneToSend || !messageToSend" @click="sendNewMessage()" :class="[
-            loading || !phoneToSend || !messageToSend ? 'bg-opacity-70 cursor-not-allowed' : 'hover:bg-indigo-500',
-            'mt-2 transition-all w-full px-4 py-3 text-white bg-indigo-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 font-medium'
-          ]">
-            <span v-if="!loading">שלח הודעה</span>
-            <span v-else class="flex justify-center items-center">
-              <svg class="animate-spin -mr-1 ml-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
-                viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-                </circle>
-                <path class="opacity-75" fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                </path>
-              </svg>
-              שולח הודעה...
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </transition>
+  <NewMessageDialog :visible="newMessageDialogVisible" :should-focus="true" @success="handleNewMessageSuccess"
+    @cancel="handleNewMessageCancel" @error="handleNewMessageError" />
 </template>
 
 <style scoped>

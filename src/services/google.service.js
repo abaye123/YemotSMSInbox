@@ -3,6 +3,8 @@
  * Handles authentication, token management, and contacts retrieval
  */
 
+import { getAuthToken } from "../utils/auth";
+
 // Constants for Google authentication
 const CLIENT_ID = '293453062070-ne2pf11bn93mjr9mka97i484rb150vlt.apps.googleusercontent.com';
 // עדכון הסקופים לכלול גישה לאימייל
@@ -388,7 +390,7 @@ export async function getGoogleTokenData() {
 
     // Get data from server
     const response = await fetch(
-      `https://www.call2all.co.il/ym/api/GetTextFile?token=${localStorage.getItem('username')}:${localStorage.getItem('password')}&what=ivr2:GoogleToken.txt`
+      `https://www.call2all.co.il/ym/api/GetTextFile?token=${await getAuthToken()}&what=ivr2:GoogleToken.txt`
     );
 
     if (!response.ok) {
