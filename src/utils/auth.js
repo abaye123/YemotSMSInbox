@@ -40,18 +40,9 @@ yemotAPI.interceptors.request.use(
                 throw new Error('No authentication token available');
             }
 
-            // הוסף את הטוקן לכותרת Authorization
-            config.headers.Authorization = `Bearer ${authToken}`;
+            config.headers.authorization = authToken;
 
-            // עבור GET requests, הוסף גם את הטוקן לפרמטרים
-            if (config.method === 'get' || !config.method) {
-                config.params = {
-                    ...config.params,
-                    token: authToken
-                };
-            }
-
-            console.log(`Making ${config.method?.toUpperCase()} request to: ${config.url}`);
+            // console.log(`Making ${config.method?.toUpperCase()} request to: ${config.url}`);
             return config;
         } catch (error) {
             console.error('Error in request interceptor:', error);
@@ -111,8 +102,8 @@ yemotAPI.interceptors.response.use(
  */
 export async function getIncomingSms(limit = 3000) {
     try {
-        const response = await yemotAPI.get('/GetIncomingSms', {
-            params: { limit }
+        const response = await yemotAPI.post('/GetIncomingSms', {
+            limit: limit
         });
         return response.data;
     } catch (error) {
@@ -128,8 +119,8 @@ export async function getIncomingSms(limit = 3000) {
  */
 export async function getSmsOutLog(limit = 999999) {
     try {
-        const response = await yemotAPI.get('/GetSmsOutLog', {
-            params: { limit }
+        const response = await yemotAPI.post('/GetSmsOutLog', {
+            limit: limit
         });
         return response.data;
     } catch (error) {

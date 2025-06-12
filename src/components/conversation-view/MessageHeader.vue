@@ -3,10 +3,10 @@
     <!-- Left Side - Contact Info -->
     <div class="space-x-3 space-x-reverse flex items-center">
       <button 
-        class="p-1.5 rounded-full text-gray-500 hover:bg-gray-100 md:hidden transition" 
+        class="p-2 rounded-full text-indigo-600 hover:bg-gray-100 transition" 
         v-tippy="'חזור'"
         @click="emit('back')">
-        <ArrowUturnLeftIcon class="h-5 w-5" />
+        <ArrowRight class="h-6 w-6" />
       </button>
 
       <div class="relative">
@@ -37,25 +37,29 @@
 
     <!-- Right Side - Action Buttons -->
     <div class="flex items-center gap-2">
+      <!-- Export Button Component -->
+      <ExportButton :conversation="conversation" />
+
       <button 
-        class="p-1.5 rounded-full text-gray-500 hover:bg-gray-100 transition" 
+        class="p-2 rounded-full text-indigo-600 hover:bg-gray-100 transition" 
         v-tippy="'רענן הודעות'"
         @click="emit('refresh')">
-        <ArrowPathIcon class="h-5 w-5" />
+        <RefreshCcw class="h-6 w-6" />
       </button>
 
       <button 
-        class="p-1.5 rounded-full text-gray-500 hover:bg-gray-100 transition" 
+        class="p-2 rounded-full text-red-600 hover:bg-gray-100 transition" 
         v-tippy="'התנתק'" 
         @click="emit('logout')">
-        <PowerIcon class="h-5 w-5" />
+        <Power class="h-6 w-6" />
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ArrowUturnLeftIcon, ArrowPathIcon, PowerIcon } from '@heroicons/vue/24/outline';
+import { RefreshCcw, Power, ArrowRight } from 'lucide-vue-next';
+import ExportButton from './ExportButton.vue';
 
 const props = defineProps({
   conversation: {

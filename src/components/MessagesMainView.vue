@@ -1,32 +1,21 @@
 <template>
   <div class="flex h-full bg-gray-50 relative">
-    <MessageView 
-      :conversation="selectedConversation" 
-      @refresh-messages="refreshMessages" 
-      :username="username"
-      :selected-id="selectedConversationId" 
-      @back="selectedConversation = null, selectedConversationId = null"
-      @logout="handleLogoutRequest" />
+    <MessageView :conversation="selectedConversation" @refresh-messages="refreshMessages" :username="username"
+      :selected-id="selectedConversationId" @back="selectedConversation = null, selectedConversationId = null"
+      @logout="handleLogoutRequest" @create-conversation="handleCreateConversation" />
 
-    <ConversationList 
-      :conversations="conversations" 
-      :selected-id="selectedConversationId"
-      @select="handleConversationSelect" 
-      @refresh-messages="refreshMessages" 
-      @filter="filterConversations" 
+    <ConversationList :conversations="conversations" :selected-id="selectedConversationId"
+      @select="handleConversationSelect" @refresh-messages="refreshMessages" @filter="filterConversations"
       @mark-all-as-read="markAllAsRead" />
 
-    <LogoutDialog 
-      :visible="logoutDialogVisible"
-      :username="username"
-      @confirm="handleLogoutConfirm"
+    <LogoutDialog :visible="logoutDialogVisible" :username="username" @confirm="handleLogoutConfirm"
       @cancel="handleLogoutCancel" />
   </div>
 </template>
 
 <script setup>
 import { ref, watchEffect, nextTick } from 'vue';
-import ConversationList from './ConversationList.vue';
+import ConversationList from './conversation-list/ConversationList.vue';
 import MessageView from './conversation-view/MessageView.vue';
 import LogoutDialog from './LogoutDialog.vue';
 import { getSavedCredentials } from '../services/encryption.service';
@@ -34,8 +23,7 @@ import {
   getGoogleContacts,
   checkGoogleAuthStatus
 } from '../services/google.service';
-import { getAuthToken } from '../utils/auth.js';
-
+import { getAuthToken, getIncomingSms, getSmsOutLog } from '../utils/auth.js';
 
 const props = defineProps({
   username: {
@@ -58,16 +46,38 @@ const googleAuthStatus = ref({
   contactCount: 0
 });
 
-const handleConversationSelect = (id) => {
-  console.log('Selected conversation ID:', id);
+const handleCreateConversation = (phoneNumber) => {
+  const existingConversation = conversations.value.find(c => c.contact === phoneNumber);
 
+  if (existingConversation) {
+    handleConversationSelect(existingConversation.id);
+  } else {
+    createNewConversation(phoneNumber);
+  }
+};
+
+const createNewConversation = (phoneNumber) => {
+  const uniqueId = crypto.randomUUID();
+
+  const newConversation = {
+    id: String(uniqueId),
+    contact: phoneNumber,
+    name: phoneNumber,
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + phoneNumber,
+    lastMessage: null,
+    messages: [],
+    unreadCount: 0,
+  };
+
+  conversations.value.unshift(newConversation);
+  handleConversationSelect(uniqueId);
+};
+
+const handleConversationSelect = (id) => {
   setRead.value = null;
 
   selectedConversationId.value = String(id);
   selectedConversation.value = conversations.value.find(c => String(c.id) === String(id)) || null;
-
-  console.log('After select - selectedId:', selectedConversationId.value);
-  console.log('Found conversation:', selectedConversation.value ? selectedConversation.value.id : 'none');
 
   watchEffect(() => {
     nextTick(() => {
@@ -79,7 +89,7 @@ const handleConversationSelect = (id) => {
 
   setRead.value = setTimeout(async () => {
     const readedArray = [];
-    const incomingMessages = selectedConversation.value.messages.filter(message => message.type === 'incoming');
+    const incomingMessages = selectedConversation.value.messages?.filter(message => message.type === 'incoming');
 
     incomingMessages.forEach((message) => {
       if (!message.read) {
@@ -151,11 +161,7 @@ async function checkNewMessages() {
       return;
     }
 
-    const response = await fetch(
-      `https://www.call2all.co.il/ym/api/GetIncomingSms?token=${authToken}&limit=1`
-    );
-
-    const data = await response.json();
+    const data = await getIncomingSms(1);
     const message = data.rows[0];
 
     const lastMessage = localStorage.getItem('lastMessage');
@@ -185,13 +191,8 @@ async function getMessages() {
       return;
     }
 
-    const incoming = await fetch(
-      `https://www.call2all.co.il/ym/api/GetIncomingSms?token=${authToken}&limit=3000`
-    );
-
-    const outgoing = await fetch(
-      `https://www.call2all.co.il/ym/api/GetSmsOutLog?token=${authToken}&limit=999999`
-    );
+    const incomingData = await getIncomingSms();
+    const outgoingData = await getSmsOutLog();
 
     let contacts = {};
 
@@ -234,8 +235,8 @@ async function getMessages() {
       readedMessages = readedMessagesObj;
     }
 
-    const incomingMsgs = (await incoming.json()).rows || [];
-    const outgoingMsgs = (await outgoing.json()).rows || [];
+    const incomingMsgs = incomingData.rows || [];
+    const outgoingMsgs = outgoingData.rows || [];
 
     const incomingMessages = incomingMsgs.map((message) => {
       const phone = message.source.startsWith('972') ? '0' + message.source.substring(3) : message.source;
@@ -339,8 +340,6 @@ async function getMessages() {
       });
     }
 
-    console.log('Created conversations:', conversations.value.map(c => ({ id: c.id, name: c.name })));
-
     window.dispatchEvent(new CustomEvent('googleAuthStatusUpdated'));
   } catch (err) {
     console.error('Error getting messages:', err);
@@ -382,14 +381,13 @@ async function markAllAsRead() {
       return;
     }
 
-    // איסוף כל ההודעות הנכנסות שלא נקראו
     const allUnreadMessages = [];
-    
+
     conversations.value.forEach(conversation => {
       const unreadIncomingMessages = conversation.messages.filter(
         message => message.type === 'incoming' && !message.read
       );
-      
+
       unreadIncomingMessages.forEach(message => {
         console.log(message)
         allUnreadMessages.push({
@@ -405,7 +403,6 @@ async function markAllAsRead() {
       return;
     }
 
-    // קבלת ההודעות הנקראות הקיימות
     const readedMessagesFetch = await fetch(
       `https://www.call2all.co.il/ym/api/GetTextFile?token=${authToken}&what=ivr2:YemotSMSInboxReadedMessages.ini`
     );
@@ -414,17 +411,14 @@ async function markAllAsRead() {
     let readedMessages = [];
 
     if (readedMessagesRes.message === "file does not exist") {
-      // אם הקובץ לא קיים, צור אותו עם כל ההודעות הלא נקראות
       await fetch(
         `https://www.call2all.co.il/ym/api/UploadTextFile?token=${authToken}&what=ivr2:YemotSMSInboxReadedMessages.ini&contents=${JSON.stringify(allUnreadMessages)}`
       );
     } else {
-      // אם הקובץ קיים, הוסף את ההודעות החדשות
       const readedMessagesData = readedMessagesRes.contents;
       readedMessages = JSON.parse(readedMessagesData);
       readedMessages = readedMessages.concat(allUnreadMessages);
 
-      // עדכן את הקובץ עם כל ההודעות הנקראות
       await fetch(`https://www.call2all.co.il/ym/api/UploadTextFile`, {
         method: 'POST',
         headers: {
@@ -438,7 +432,6 @@ async function markAllAsRead() {
       });
     }
 
-    // עדכן את כל השיחות מקומית - אפס את מונה ההודעות הלא נקראות
     conversations.value = conversations.value.map(conversation => ({
       ...conversation,
       unreadCount: 0,
@@ -448,7 +441,6 @@ async function markAllAsRead() {
       }))
     }));
 
-    // עדכן את השיחה הנבחרת אם קיימת
     if (selectedConversation.value) {
       selectedConversation.value = {
         ...selectedConversation.value,
@@ -461,7 +453,7 @@ async function markAllAsRead() {
     }
 
     console.log(`Marked ${allUnreadMessages.length} messages as read`);
-    
+
   } catch (error) {
     console.error('Error marking all messages as read:', error);
     alert('שגיאה בסימון ההודעות כנקראו');
@@ -481,7 +473,6 @@ const handleLogoutCancel = () => {
   logoutDialogVisible.value = false;
 };
 
-// Initialize and start periodic checks
 const init = async () => {
   try {
     console.log('Checking Google auth status during initialization...');
@@ -498,10 +489,8 @@ const init = async () => {
   setInterval(checkNewMessages, 5000);
 };
 
-// Start the application
 init();
 
-// Listen for authentication status changes
 window.addEventListener('googleAuthStatusChanged', async () => {
   console.log('Google auth status changed, refreshing data...');
   await getMessages();

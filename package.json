@@ -1,7 +1,7 @@
 {
   "name": "vite-vue-typescript-starter",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hebcal/core": "^5.9.8",
     "@heroicons/vue": "^2.2.0",
     "axios": "^1.9.0",
     "date-fns": "^4.1.0",
