@@ -1,7 +1,8 @@
 <template>
-    <div class="flex-1 flex flex-col items-center justify-center text-gray-500 py-16 px-8">
-        <div class="text-center max-w-sm">
-            <div class="w-16 h-16 bg-gray-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+    <div class="flex-1 flex flex-col items-center justify-center text-gray-500 py-16 px-8 min-h-full">
+        <div class="text-center max-w-sm -mt-16">
+            <div
+                class="w-16 h-16 bg-gray-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
                 <MessageSquareText class="w-8 h-8" />
             </div>
 
@@ -9,7 +10,7 @@
 
             <p class="text-gray-500 text-center mb-6 leading-relaxed">
                 זוהי התחלת השיחה שלך עם {{ conversation.name }}<br>
-                שלח הודעה ראשונה כדי להתחיל לשוחח!
+                תהיה זה שישלח את ההודעה הראשונה כדי להתחיל לשוחח!
             </p>
 
             <div class="text-sm text-gray-400">
@@ -28,4 +29,5 @@ const props = defineProps({
         required: true
     }
 });
+
 </script>
