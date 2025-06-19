@@ -100,9 +100,8 @@ const handleSend = async () => {
             return;
         }
 
-        const response = await fetch(
-            `https://www.call2all.co.il/ym/api/SendSms?token=${authToken}&phones=${props.phoneNumber}&message=${message.value}`
-        );
+        const encodedMessage = encodeURIComponent(message.value);
+        const response = await fetch(`https://www.call2all.co.il/ym/api/SendSms?token=${authToken}&phones=${props.phoneNumber}&message=${encodedMessage}`);
 
         const data = await response.json();
 
