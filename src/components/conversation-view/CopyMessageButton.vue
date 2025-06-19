@@ -28,7 +28,8 @@ function copy() {
         copied.value = true;
         setTimeout(() => {
             copied.value = false;
-        }, 1250);
+        }, 1500);
     });
 }
+
 </script>
